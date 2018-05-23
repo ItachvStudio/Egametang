@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Threading;
 using ETModel;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,14 +20,31 @@ namespace ETHotfix
 	{
 		private GameObject account;
 		private GameObject loginBtn;
+	    private TimerComponent timer = ETModel.Game.Scene.GetComponent<TimerComponent>();
 
-		public void Awake()
+	    CancellationTokenSource tokenSource = new CancellationTokenSource();
+	    CancellationToken cancelLogin;
+
+        public void Awake()
 		{
 			ReferenceCollector rc = this.GetParent<UI>().GameObject.GetComponent<ReferenceCollector>();
 			loginBtn = rc.Get<GameObject>("LoginBtn");
 			loginBtn.GetComponent<Button>().onClick.Add(OnLogin);
 			this.account = rc.Get<GameObject>("Account");
+		    this.cancelLogin = (CancellationToken)this.tokenSource.Token;
+		    Counter();
 		}
+
+	    private async void Counter()
+	    {
+	        int count = 0;
+	        while (true)
+	        {
+	            await this.timer.WaitAsync(1000, this.cancelLogin);
+                loginBtn.GetComponentInChildren<Text>().text = $"登录{count}s";
+	                    count++;
+	        }
+	    }
 
 		public async void OnLogin()
 		{
@@ -60,6 +78,7 @@ namespace ETHotfix
 				PlayerComponent playerComponent = ETModel.Game.Scene.GetComponent<PlayerComponent>();
 				playerComponent.MyPlayer = player;
 
+                this.tokenSource.Cancel();
 				Game.Scene.GetComponent<UIComponent>().Create(UIType.UILobby);
 				Game.Scene.GetComponent<UIComponent>().Remove(UIType.UILogin);
 			}

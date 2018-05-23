@@ -79,6 +79,12 @@ public class ExcelExporterEditor : EditorWindow
 			{
 				ExportAllClass(@".\Assets\Scripts\Entity\Config");
 			}
+
+			if (GUILayout.Button("生成Csv"))
+			{
+			    this.isClient = true;
+                ExportAllCsv(clientPath);
+			}
 		}
 		catch (Exception e)
 		{
@@ -311,7 +317,130 @@ public class ExcelExporterEditor : EditorWindow
 		}
 	}
 
-	private static string Convert(string type, string value)
+    private void ExportAllCsv(string exportDir)
+    {
+        foreach (string filePath in Directory.GetFiles(ExcelPath))
+        {
+            if (Path.GetExtension(filePath) != ".xlsx")
+            {
+                continue;
+            }
+            if (Path.GetFileName(filePath).StartsWith("~"))
+            {
+                continue;
+            }
+            string fileName = Path.GetFileName(filePath);
+            /*string oldMD5 = this.md5Info.Get(fileName);
+            string md5 = MD5Helper.FileMD5(filePath);
+            this.md5Info.Add(fileName, md5);
+            if (md5 == oldMD5)
+            {
+                continue;
+            }*/
+            Log.Debug($"{fileName}");
+            ExportCsv(filePath, exportDir);
+        }
+    }
+
+    private void ExportCsv(string fileName, string exportDir)
+    {
+        XSSFWorkbook xssfWorkbook;
+        using (FileStream file = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        {
+            xssfWorkbook = new XSSFWorkbook(file);
+        }
+        string protoName = Path.GetFileNameWithoutExtension(fileName);
+        Log.Info($"{protoName}导表开始");
+        string exportPath = Path.Combine(exportDir, $"{protoName}.csv");
+        using (FileStream txt = new FileStream(exportPath, FileMode.Create))
+        using (StreamWriter sw = new StreamWriter(txt))
+        {
+            for (int i = 0; i < xssfWorkbook.NumberOfSheets; ++i)
+            {
+                ISheet sheet = xssfWorkbook.GetSheetAt(i);
+                ExportSheet2Csv(sheet, sw);
+            }
+        }
+        Log.Info($"{protoName}导表完成");
+    }
+
+    private void ExportSheet2Csv(ISheet sheet, StreamWriter sw)
+    {
+        int cellCount = sheet.GetRow(3).LastCellNum;
+
+        CellInfo[] cellInfos = new CellInfo[cellCount];
+
+        for (int i = 2; i < cellCount; i++)
+        {
+            string fieldDesc = GetCellString(sheet, 2, i);
+            string fieldName = GetCellString(sheet, 3, i);
+            string fieldType = GetCellString(sheet, 4, i);
+            cellInfos[i] = new CellInfo() { Name = fieldName, Type = fieldType, Desc = fieldDesc };
+        }
+
+        for (int i = 5; i <= sheet.LastRowNum; ++i)
+        {
+            if (GetCellString(sheet, i, 2) == "")
+            {
+                continue;
+            }
+            StringBuilder sb = new StringBuilder();
+            //sb.Append("{");
+            IRow row = sheet.GetRow(i);
+            for (int j = 2; j < cellCount; ++j)
+            {
+                string desc = cellInfos[j].Desc.ToLower();
+                if (desc.StartsWith("#"))
+                {
+                    continue;
+                }
+
+                // s开头表示这个字段是服务端专用
+                if (desc.StartsWith("s") && this.isClient)
+                {
+                    continue;
+                }
+
+                // c开头表示这个字段是客户端专用
+                if (desc.StartsWith("c") && !this.isClient)
+                {
+                    continue;
+                }
+
+                string fieldValue = GetCellString(row, j);
+                if (fieldValue == "")
+                {
+                    throw new Exception($"sheet: {sheet.SheetName} 中有空白字段 {i},{j}");
+                }
+
+                if (j > 2)
+                {
+                    sb.Append(",");
+                }
+
+                string fieldName = cellInfos[j].Name;
+
+                if (fieldName == "Id" || fieldName == "_id")
+                {
+                    if (this.isClient)
+                    {
+                        fieldName = "Id";
+                    }
+                    else
+                    {
+                        fieldName = "_id";
+                    }
+                }
+
+                string fieldType = cellInfos[j].Type;
+                //sb.Append($"\"{fieldName}\":{Convert(fieldType, fieldValue)}");
+                sb.Append($"{Convert(fieldType, fieldValue)}");
+            }
+            //sb.Append("\n");
+            sw.WriteLine(sb.ToString());
+        }
+    }
+    private static string Convert(string type, string value)
 	{
 		switch (type)
 		{
