@@ -57,7 +57,14 @@ public class IntervalButton : UIBehaviour, IPointerDownHandler, IPointerUpHandle
             {
                 this.canInvoke = true;
                 //this.isClicked = false;
-                this.GetComponent<Image>().color = Color.white;
+                if(this.GetComponent<Image>()!= null)
+                {
+                    this.GetComponent<Image>().color = Color.white;
+                }
+                else
+                {
+                    //Log.Error($"-00--not contains Image");
+                }
                 //this.temInterval = this.interval;
             }
         }
@@ -87,7 +94,14 @@ public class IntervalButton : UIBehaviour, IPointerDownHandler, IPointerUpHandle
             //this.isClicked = true;
             if (this.isGreyImage)
             {
-                this.GetComponent<Image>().color = Color.grey;
+                if (this.GetComponent<Image>() != null)
+                {
+                    this.GetComponent<Image>().color = Color.grey;
+                }
+                else
+                {
+                    //Log.Error($"-11--not contains Image");
+                }
             }
             this.canInvoke = false;
         }
