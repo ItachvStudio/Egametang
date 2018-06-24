@@ -31,10 +31,11 @@ namespace ETModel
 			this.parser = new PacketParser(this.recvBuffer);
 			this.innArgs.Completed += this.OnComplete;
 			this.outArgs.Completed += this.OnComplete;
-			this.innArgs.UserToken = new UserTokenInfo() { InstanceId = this.InstanceId };
-			this.outArgs.UserToken = new UserTokenInfo() { InstanceId = this.InstanceId };
 
 			this.RemoteAddress = ipEndPoint;
+
+			this.isConnected = false;
+			this.isSending = false;
 		}
 		
 		public TChannel(Socket socket, TService service): base(service, ChannelType.Accept)
@@ -44,12 +45,11 @@ namespace ETModel
 			this.parser = new PacketParser(this.recvBuffer);
 			this.innArgs.Completed += this.OnComplete;
 			this.outArgs.Completed += this.OnComplete;
-			this.innArgs.UserToken = new UserTokenInfo() { InstanceId = this.InstanceId };
-			this.outArgs.UserToken = new UserTokenInfo() { InstanceId = this.InstanceId };
 
 			this.RemoteAddress = (IPEndPoint)socket.RemoteEndPoint;
 			
 			this.isConnected = true;
+			this.isSending = false;
 		}
 		
 		public override void Dispose()
@@ -76,6 +76,7 @@ namespace ETModel
 				this.ConnectAsync(this.RemoteAddress);
 				return;
 			}
+			
 			this.StartRecv();
 			this.StartSend();
 		}
@@ -89,7 +90,8 @@ namespace ETModel
 			byte[] sizeBuffer = BitConverter.GetBytes(length);
 			this.sendBuffer.Write(sizeBuffer, 0, sizeBuffer.Length);
 			this.sendBuffer.Write(buffer, index, length);
-			if (this.isConnected && !this.isSending)
+
+			if(!this.isSending)
 			{
 				this.StartSend();
 			}
@@ -108,7 +110,8 @@ namespace ETModel
 			{
 				this.sendBuffer.Write(buffer, 0, buffer.Length);
 			}
-			if (this.isConnected && !this.isSending)
+
+			if(!this.isSending)
 			{
 				this.StartSend();
 			}
@@ -147,18 +150,12 @@ namespace ETModel
 
 		private void OnConnectComplete(object o)
 		{
-			if (this.IsDisposed)
+			if (this.socket == null)
 			{
-				throw new Exception("TChannel已经被Dispose, 不能发送消息");
-			}
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
-			UserTokenInfo userTokenInfo = (UserTokenInfo) e.UserToken;
-			if (userTokenInfo.InstanceId != this.InstanceId)
-			{
-				Log.Error($"session disposed!");
 				return;
 			}
-
+			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
+			
 			if (e.SocketError != SocketError.Success)
 			{
 				this.OnError((int)e.SocketError);	
@@ -168,7 +165,8 @@ namespace ETModel
 			e.RemoteEndPoint = null;
 			this.isConnected = true;
 			
-			this.Start();
+			this.StartRecv();
+			this.StartSend();
 		}
 
 		private void OnDisconnectComplete(object o)
@@ -203,17 +201,11 @@ namespace ETModel
 
 		private void OnRecvComplete(object o)
 		{
-			if (this.IsDisposed)
+			if (this.socket == null)
 			{
-				throw new Exception("TChannel已经被Dispose, 不能发送消息");
-			}
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs)o;
-			UserTokenInfo userTokenInfo = (UserTokenInfo) e.UserToken;
-			if (userTokenInfo.InstanceId != this.InstanceId)
-			{
-				Log.Error($"session disposed!");
 				return;
 			}
+			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
 
 			if (e.SocketError != SocketError.Success)
 			{
@@ -253,19 +245,18 @@ namespace ETModel
 				}
 			}
 
-			if (userTokenInfo.InstanceId != this.InstanceId)
+			if (this.socket == null)
 			{
 				return;
 			}
+			
 			this.StartRecv();
 		}
 
 		private void StartSend()
 		{
-			// 没有数据需要发送
-			if (this.sendBuffer.Length == 0)
+			if(!this.isConnected)
 			{
-				this.isSending = false;
 				return;
 			}
 
@@ -299,17 +290,11 @@ namespace ETModel
 
 		private void OnSendComplete(object o)
 		{
-			if (this.IsDisposed)
+			if (this.socket == null)
 			{
-				throw new Exception("TChannel已经被Dispose, 不能发送消息");
-			}
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs)o;
-			UserTokenInfo userTokenInfo = (UserTokenInfo) e.UserToken;
-			if (userTokenInfo.InstanceId != this.InstanceId)
-			{
-				Log.Error($"session disposed!");
 				return;
 			}
+			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
 
 			if (e.SocketError != SocketError.Success)
 			{
@@ -322,7 +307,14 @@ namespace ETModel
 				this.sendBuffer.FirstIndex = 0;
 				this.sendBuffer.RemoveFirst();
 			}
-
+			
+			// 没有数据需要发送
+			if (this.sendBuffer.Length == 0)
+			{
+				this.isSending = false;
+				return;
+			}
+			
 			this.StartSend();
 		}
 	}
