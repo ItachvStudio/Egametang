@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -24,8 +25,12 @@ namespace ETModel
 
 		public readonly PacketParser parser;
 
+		public readonly byte[] cache = new byte[2];
+
 		public TChannel(IPEndPoint ipEndPoint, TService service): base(service, ChannelType.Connect)
 		{
+			this.InstanceId = IdGenerater.GenerateId();
+			
 			this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			this.socket.NoDelay = true;
 			this.parser = new PacketParser(this.recvBuffer);
@@ -40,6 +45,8 @@ namespace ETModel
 		
 		public TChannel(Socket socket, TService service): base(service, ChannelType.Accept)
 		{
+			this.InstanceId = IdGenerater.GenerateId();
+			
 			this.socket = socket;
 			this.socket.NoDelay = true;
 			this.parser = new PacketParser(this.recvBuffer);
@@ -51,7 +58,7 @@ namespace ETModel
 			this.isConnected = true;
 			this.isSending = false;
 		}
-		
+
 		public override void Dispose()
 		{
 			if (this.IsDisposed)
@@ -69,6 +76,14 @@ namespace ETModel
 			this.socket = null;
 		}
 
+		public override MemoryStream Stream
+		{
+			get
+			{
+				return this.parser.packet.Stream;
+			}
+		}
+
 		public override void Start()
 		{
 			if (!this.isConnected)
@@ -80,36 +95,17 @@ namespace ETModel
 			this.StartRecv();
 			this.StartSend();
 		}
-
-		public override void Send(byte[] buffer, int index, int length)
+		
+		public override void Send(MemoryStream stream)
 		{
 			if (this.IsDisposed)
 			{
 				throw new Exception("TChannel已经被Dispose, 不能发送消息");
 			}
-			byte[] sizeBuffer = BitConverter.GetBytes(length);
-			this.sendBuffer.Write(sizeBuffer, 0, sizeBuffer.Length);
-			this.sendBuffer.Write(buffer, index, length);
 
-			if(!this.isSending)
-			{
-				this.StartSend();
-			}
-		}
-
-		public override void Send(List<byte[]> buffers)
-		{
-			if (this.IsDisposed)
-			{
-				throw new Exception("TChannel已经被Dispose, 不能发送消息");
-			}
-			ushort size = (ushort)buffers.Select(b => b.Length).Sum();
-			byte[] sizeBuffer = BitConverter.GetBytes(size);
-			this.sendBuffer.Write(sizeBuffer, 0, sizeBuffer.Length);
-			foreach (byte[] buffer in buffers)
-			{
-				this.sendBuffer.Write(buffer, 0, buffer.Length);
-			}
+			cache.WriteTo(0, (ushort)stream.Length);
+			this.sendBuffer.Write(this.cache, 0, this.cache.Length);
+			this.sendBuffer.ReadFrom(stream);
 
 			if(!this.isSending)
 			{

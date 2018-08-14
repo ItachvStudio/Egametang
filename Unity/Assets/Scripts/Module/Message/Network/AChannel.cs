@@ -1,18 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Net;
 
 namespace ETModel
 {
-	[Flags]
-	public enum PacketFlags
-	{
-		None = 0,
-		Reliable = 1 << 0,
-		Unsequenced = 1 << 1,
-		NoAllocate = 1 << 2
-	}
-
 	public enum ChannelType
 	{
 		Connect,
@@ -24,6 +15,10 @@ namespace ETModel
 		public ChannelType ChannelType { get; }
 
 		protected AService service;
+
+		public abstract MemoryStream Stream { get; }
+		
+		public int Error { get; set; }
 
 		public IPEndPoint RemoteAddress { get; protected set; }
 
@@ -62,6 +57,7 @@ namespace ETModel
 
 		protected void OnError(int e)
 		{
+			this.Error = e;
 			this.errorCallback?.Invoke(this, e);
 		}
 
@@ -73,13 +69,8 @@ namespace ETModel
 		}
 
 		public abstract void Start();
-
-		/// <summary>
-		/// 发送消息
-		/// </summary>
-		public abstract void Send(byte[] buffer, int index, int length);
-
-		public abstract void Send(List<byte[]> buffers);
+		
+		public abstract void Send(MemoryStream stream);
 		
 		public override void Dispose()
 		{

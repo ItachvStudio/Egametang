@@ -19,6 +19,7 @@ namespace ETEditor
 		Android,
 		IOS,
 		PC,
+		MacOS,
 	}
 	
 	public enum BuildType
@@ -44,7 +45,7 @@ namespace ETEditor
 			GetWindow(typeof(BuildEditor));
 		}
 
-		private void OnGUI()
+		private void OnGUI() 
 		{
 			this.platformType = (PlatformType)EditorGUILayout.EnumPopup(platformType);
 			this.isBuildExe = EditorGUILayout.Toggle("是否打包EXE: ", this.isBuildExe);

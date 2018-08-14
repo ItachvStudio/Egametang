@@ -8,17 +8,31 @@ namespace ETModel
 	{
 		public override void Awake(OpcodeTypeComponent self)
 		{
-			self.Awake();
+			self.Load();
+		}
+	}
+	
+	[ObjectSystem]
+	public class OpcodeTypeComponentLoadSystem : LoadSystem<OpcodeTypeComponent>
+	{
+		public override void Load(OpcodeTypeComponent self)
+		{
+			self.Load();
 		}
 	}
 
 	public class OpcodeTypeComponent : Component
 	{
 		private readonly DoubleMap<ushort, Type> opcodeTypes = new DoubleMap<ushort, Type>();
+		
+		private readonly Dictionary<ushort, object> typeMessages = new Dictionary<ushort, object>();
 
-		public void Awake()
+		public void Load()
 		{
-			List<Type> types = Game.EventSystem.GetTypes();
+			this.opcodeTypes.Clear();
+			this.typeMessages.Clear();
+			
+			List<Type> types = Game.EventSystem.GetTypes(typeof(MessageAttribute));
 			foreach (Type type in types)
 			{
 				object[] attrs = type.GetCustomAttributes(typeof(MessageAttribute), false);
@@ -34,6 +48,7 @@ namespace ETModel
 				}
 
 				this.opcodeTypes.Add(messageAttribute.Opcode, type);
+				this.typeMessages.Add(messageAttribute.Opcode, Activator.CreateInstance(type));
 			}
 		}
 
@@ -45,6 +60,11 @@ namespace ETModel
 		public Type GetType(ushort opcode)
 		{
 			return this.opcodeTypes.GetValueByKey(opcode);
+		}
+		
+		public object GetInstance(ushort opcode)
+		{
+			return this.typeMessages[opcode];
 		}
 
 		public override void Dispose()
