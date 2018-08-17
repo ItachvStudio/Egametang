@@ -71,6 +71,7 @@ namespace ETModel
 			this.socket.Close();
 			this.innArgs.Dispose();
 			this.outArgs.Dispose();
+			this.parser.Dispose();
 			this.innArgs = null;
 			this.outArgs = null;
 			this.socket = null;
@@ -255,6 +256,13 @@ namespace ETModel
 			{
 				return;
 			}
+			
+			// 没有数据需要发送
+			if (this.sendBuffer.Length == 0)
+			{
+				this.isSending = false;
+				return;
+			}
 
 			this.isSending = true;
 
@@ -302,13 +310,6 @@ namespace ETModel
 			{
 				this.sendBuffer.FirstIndex = 0;
 				this.sendBuffer.RemoveFirst();
-			}
-			
-			// 没有数据需要发送
-			if (this.sendBuffer.Length == 0)
-			{
-				this.isSending = false;
-				return;
 			}
 			
 			this.StartSend();
