@@ -4,8 +4,8 @@ using ETModel;
 using ILRuntime.CLR.Method;
 using ILRuntime.CLR.TypeSystem;
 using UnityEngine;
-using UnityEngine.Purchasing;
-/*using UnityEngine.Store;
+/*using UnityEngine.Purchasing;
+using UnityEngine.Store;
 
 namespace Model
 {
